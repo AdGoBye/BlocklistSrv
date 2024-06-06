@@ -1,0 +1,3 @@
+/docker/configuration/.grafanaAdminPassword
+/docker/configuration/.grafanaServiceCredential
+/docker/configuration/.secrets
