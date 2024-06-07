@@ -123,3 +123,70 @@ func Test_fetchBlocklist(t *testing.T) {
 		})
 	}
 }
+
+func TestWorldObjectIndex_GetWorldById(t *testing.T) {
+	type fields struct {
+		Index map[string]WorldObject
+	}
+	type args struct {
+		HashedWorldId string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   *WorldObject
+	}{
+		{
+			name: "exists in index",
+			fields: fields{Index: map[string]WorldObject{
+				"ZDZkNWExN2IzMGEyYWZmNmZiYzlhOGZlYzhiZDQ4MGRiZTdiYzEzMTVlYWQ0NzhjOTRmYjdiMDUxOTQ4MDI2Ng==": {FriendlyName: "Test"},
+			}},
+			args: args{HashedWorldId: "ZDZkNWExN2IzMGEyYWZmNmZiYzlhOGZlYzhiZDQ4MGRiZTdiYzEzMTVlYWQ0NzhjOTRmYjdiMDUxOTQ4MDI2Ng=="},
+			want: Pointer(WorldObject{FriendlyName: "Test", GameObjectMapping: nil}),
+		},
+		{
+			name:   "doesn't exist in index",
+			fields: fields{Index: map[string]WorldObject{}},
+			args:   args{HashedWorldId: "ZDZkNWExN2IzMGEyYWZmNmZiYzlhOGZlYzhiZDQ4MGRiZTdiYzEzMTVlYWQ0NzhjOTRmYjdiMDUxOTQ4MDI2Ng=="},
+			want:   nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			indexObj := WorldObjectIndex{
+				Index: tt.fields.Index,
+			}
+			assert.Equalf(t, tt.want, indexObj.GetWorldById(tt.args.HashedWorldId), "GetWorldById(%v)", tt.args.HashedWorldId)
+		})
+	}
+}
+
+func Test_stringToHash(t *testing.T) {
+	type args[inputs interface{ string | []byte }] struct {
+		input inputs
+	}
+	type testCase[inputs interface{ string | []byte }] struct {
+		name       string
+		args       args[inputs]
+		wantOutput []byte
+	}
+	stringTests := []testCase[string]{
+		{
+			name:       "Empty string",
+			args:       args[string]{input: ""},
+			wantOutput: []byte{0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f, 0xb9, 0x24, 0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c, 0xa4, 0x95, 0x99, 0x1b, 0x78, 0x52, 0xb8, 0x55},
+		},
+		{
+			name:       "Proper string",
+			args:       args[string]{input: "wrld_00000000-0000-0000-0000-000000000000"},
+			wantOutput: []byte{0xd6, 0xd5, 0xa1, 0x7b, 0x30, 0xa2, 0xaf, 0xf6, 0xfb, 0xc9, 0xa8, 0xfe, 0xc8, 0xbd, 0x48, 0xd, 0xbe, 0x7b, 0xc1, 0x31, 0x5e, 0xad, 0x47, 0x8c, 0x94, 0xfb, 0x7b, 0x5, 0x19, 0x48, 0x2, 0x66},
+		},
+	}
+	for _, tt := range stringTests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(t, tt.wantOutput, stringToHash(tt.args.input), "stringToHash(%v)", tt.args.input)
+		})
+	}
+}
