@@ -1,6 +1,6 @@
 module AGB-BlocklistSrv
 
-go 1.22
+go 1.22.3
 
 require (
 	github.com/go-openapi/strfmt v0.23.0
