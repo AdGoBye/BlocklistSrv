@@ -17,11 +17,6 @@ func init() {
 	if len(HMACKey) == 0 {
 		panic("GITHUB_WEBHOOK_SECRET not set, need webhook secret")
 	}
-
-	err := GrafanaDoesRelevantDashboardExist()
-	if err != nil {
-		panic(err)
-	}
 }
 
 type GithubPushWebhookObj struct {
