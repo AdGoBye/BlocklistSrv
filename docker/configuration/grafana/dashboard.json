@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 1,
+  "id": 2,
   "links": [],
   "panels": [
     {
@@ -50,7 +50,7 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 4,
         "x": 0,
         "y": 0
       },
@@ -77,12 +77,61 @@
             "type": "influxdb",
             "uid": "P6D64DDB364ABABC6"
           },
-          "query": "from(bucket: \"blcb\")\n  |> range(start: v.timeRangeStart, stop:v.timeRangeStop)\n  |> group()\n  |> count()",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r.blocklists =~ /${Blocklist:regex}/ and r._value =~ /${Name:regex}/)\n  |> group()\n  |> count()",
           "refId": "A"
         }
       ],
-      "title": "Callbacks for selected time range",
+      "title": "Misses for selected time range",
       "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "P6D64DDB364ABABC6"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 4,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": false
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "P6D64DDB364ABABC6"
+          },
+          "query": "from(bucket: \"blcb\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r.blocklists =~ /${Blocklist:regex}/ and r._value =~ /${Name:regex}/)\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> drop(columns: [\"_start\", \"_stop\"])\n\n\n\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Miss logs",
+      "transformations": [
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "desc": false,
+                "field": "callbackSetId Default Home"
+              }
+            ]
+          }
+        }
+      ],
+      "type": "logs"
     },
     {
       "datasource": {
@@ -149,7 +198,7 @@
         "x": 12,
         "y": 0
       },
-      "id": 1,
+      "id": 3,
       "options": {
         "legend": {
           "calcs": [],
@@ -169,11 +218,103 @@
             "type": "influxdb",
             "uid": "P6D64DDB364ABABC6"
           },
-          "query": "from(bucket: \"blcb\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> drop(columns: [\"_measurement\", \"_field\"])\n  |> aggregateWindow(every: 24h, fn: count)",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r.blocklists =~ /${Blocklist:regex}/ and r._value =~ /${Name:regex}/)\n  |> filter(fn: (r) => (r._field == \"world\"))\n  |> duplicate(column: \"_value\", as: \"wrldname\")\n  |> group(columns: [\"wrldname\"])\n  |> aggregateWindow(every: ${window}, fn: count)",
           "refId": "A"
         }
       ],
-      "title": "Blocklist Callbacks (every 24h)",
+      "title": "Misses by world (${window} window)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "P6D64DDB364ABABC6"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "P6D64DDB364ABABC6"
+          },
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r.blocklists =~ /${Blocklist:regex}/ and r._value =~ /${Name:regex}/)\n  |> duplicate(column: \"blocklists\", as: \"blocklist\")\n  |> group(columns: [\"blocklist\"])\n  |> aggregateWindow(every: ${window}, fn: count)",
+          "refId": "A"
+        }
+      ],
+      "title": "Misses by Blocklist (${window} window)",
       "type": "timeseries"
     }
   ],
@@ -181,17 +322,151 @@
   "schemaVersion": 39,
   "tags": [],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "influxdb",
+          "uid": "P6D64DDB364ABABC6"
+        },
+        "definition": "from(bucket: \"blcb\")\n  |> range(start: v.timeRangeStart, stop:v.timeRangeStop)\n  |> filter(fn: (r) => r._field == \"world\")\n  |> drop(columns: [\"_time\"])",
+        "hide": 0,
+        "includeAll": true,
+        "label": "",
+        "multi": true,
+        "name": "Name",
+        "options": [],
+        "query": "from(bucket: \"blcb\")\n  |> range(start: v.timeRangeStart, stop:v.timeRangeStop)\n  |> filter(fn: (r) => r._field == \"world\")\n  |> drop(columns: [\"_time\"])",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "influxdb",
+          "uid": "P6D64DDB364ABABC6"
+        },
+        "definition": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"blocklists\",\n)",
+        "hide": 0,
+        "includeAll": true,
+        "multi": true,
+        "name": "Blocklist",
+        "options": [],
+        "query": "import \"influxdata/influxdb/v1\"\nv1.tagValues(\n    bucket: v.bucket,\n    tag: \"blocklists\",\n)",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 5,
+        "type": "query"
+      },
+      {
+        "auto": true,
+        "auto_count": 30,
+        "auto_min": "10s",
+        "current": {
+          "selected": false,
+          "text": "auto",
+          "value": "$__auto_interval_window"
+        },
+        "description": "",
+        "hide": 0,
+        "label": "Windowing Interval",
+        "name": "window",
+        "options": [
+          {
+            "selected": true,
+            "text": "auto",
+            "value": "$__auto_interval_window"
+          },
+          {
+            "selected": false,
+            "text": "1m",
+            "value": "1m"
+          },
+          {
+            "selected": false,
+            "text": "10m",
+            "value": "10m"
+          },
+          {
+            "selected": false,
+            "text": "30m",
+            "value": "30m"
+          },
+          {
+            "selected": false,
+            "text": "1h",
+            "value": "1h"
+          },
+          {
+            "selected": false,
+            "text": "6h",
+            "value": "6h"
+          },
+          {
+            "selected": false,
+            "text": "12h",
+            "value": "12h"
+          },
+          {
+            "selected": false,
+            "text": "1d",
+            "value": "1d"
+          },
+          {
+            "selected": false,
+            "text": "7d",
+            "value": "7d"
+          },
+          {
+            "selected": false,
+            "text": "14d",
+            "value": "14d"
+          },
+          {
+            "selected": false,
+            "text": "30d",
+            "value": "30d"
+          }
+        ],
+        "query": "1m,10m,30m,1h,6h,12h,1d,7d,14d,30d",
+        "queryValue": "",
+        "refresh": 2,
+        "skipUrlSync": false,
+        "type": "interval"
+      }
+    ]
   },
   "time": {
-    "from": "now-12h",
+    "from": "now-24h",
     "to": "now"
   },
   "timeRangeUpdatedDuringEditOrView": false,
   "timepicker": {},
   "timezone": "browser",
-  "title": "AdGoBye Blocklist Callbacks",
-  "uid": "ednqplzkkderkb",
-  "version": 2,
+  "title": "AdGoBye Blocklist Callback Copy",
+  "uid": "edo2z0gzn4740f",
+  "version": 5,
   "weekStart": ""
 }

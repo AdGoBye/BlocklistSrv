@@ -28,9 +28,8 @@ var (
 		BasePath: "/api",
 		OrgID:    1,
 	}
-	client              goapi.GrafanaHTTPAPI
-	grafanaDashboardUID = os.Getenv("GRAFANA_DASHBOARD_UID")
-	grafanaReady        = false
+	client       goapi.GrafanaHTTPAPI
+	grafanaReady = false
 )
 
 func init() {
@@ -60,7 +59,7 @@ func tryGetToken() {
 	clientCfg.BasicAuth = nil
 	clientCfg.APIKey = token
 	client = *goapi.NewHTTPClientWithConfig(strfmt.Default, clientCfg)
-	err = GrafanaDoesRelevantDashboardExist()
+	_, err = GrafanaGetSelf()
 	if err != nil {
 		token, err = issueServiceToken() // The token we read is probably stale, get another one
 		if err != nil {
@@ -68,13 +67,20 @@ func tryGetToken() {
 		}
 		clientCfg.APIKey = token
 		client = *goapi.NewHTTPClientWithConfig(strfmt.Default, clientCfg)
-		err = GrafanaDoesRelevantDashboardExist()
+		_, err = GrafanaGetSelf()
 		if err != nil {
 			log.Errorf("tryGetToken: We issued a token but it doesn't work?! ('%s'), refusing to enable webhook endpoint", err.Error())
 			return
 		}
 	}
 	grafanaReady = true
+}
+func GrafanaGetSelf() (*models.UserProfileDTO, error) {
+	user, err := client.SignedInUser.GetSignedInUser()
+	if err != nil {
+		return nil, nil
+	}
+	return user.GetPayload(), err
 }
 
 func issueServiceToken() (string, error) {
@@ -161,22 +167,12 @@ func readFileFromEnvVarLocation(envvar string) (string, error) {
 	return string(content), nil
 }
 
-func GrafanaDoesRelevantDashboardExist() error {
-	_, err := client.Dashboards.GetDashboardByUID(grafanaDashboardUID)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func constructAnnotationGrafana(WebhookObj GithubPushWebhookObj) {
 	_, err := client.Annotations.PostAnnotation(Pointer(models.PostAnnotationsCmd{
-		DashboardUID: grafanaDashboardUID,
-		PanelID:      1,
-		Time:         time.Now().UnixMilli(),
-		TimeEnd:      time.Now().UnixMilli(),
-		Tags:         []string{"gitpush"},
-		Text:         generateGrafanaAnnotationText(WebhookObj),
+		Time:    time.Now().UnixMilli(),
+		TimeEnd: time.Now().UnixMilli(),
+		Tags:    []string{"gitpush"},
+		Text:    generateGrafanaAnnotationText(WebhookObj),
 	}))
 	if err != nil {
 		fmt.Println(err)

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/gofiber/fiber/v2/log"
+	"github.com/google/uuid"
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 	"github.com/influxdata/influxdb-client-go/v2/api"
 	"github.com/pelletier/go-toml/v2"
@@ -26,7 +27,7 @@ type WorldObjectIndex struct {
 }
 
 type Blocklist struct {
-	Title       string  `toml:"-"`
+	Title       string  `toml:"title"`
 	Description string  `toml:"-"`
 	Maintainer  string  `toml:"-"`
 	Blocks      []Block `toml:"block"`
@@ -45,9 +46,10 @@ type CallbackContainer struct {
 }
 
 type Gameobject struct {
-	Name     string              `toml:"name" json:"Name"`
-	Position *GameobjectPosition `toml:"position" json:"Position"`
-	Parent   *Gameobject         `toml:"parent" json:"Parent"`
+	Name            string              `toml:"name" json:"Name"`
+	Position        *GameobjectPosition `toml:"position" json:"Position"`
+	Parent          *Gameobject         `toml:"parent" json:"Parent"`
+	parentBlocklist string
 }
 type GameobjectPosition struct {
 	X float64 `toml:"x" json:"X"`
@@ -78,13 +80,33 @@ func (index WorldObjectIndex) HandleBlocklistCallback(object CallbackContainer) 
 	if len(misses) == 0 { // None of the objects reported back are relevant to us
 		return
 	}
-	p := influxdb2.NewPointWithMeasurement("callbacks").
-		AddTag("worldFriendlyName", world.FriendlyName).
-		AddField("misses", misses).
-		SetTime(time.Now())
-	err := influxdb.WritePoint(context.Background(), p)
+	now := time.Now()
+	callbackSetId, err := uuid.NewUUID()
 	if err != nil {
-		log.Error(err)
+		panic(err)
+	}
+
+	for _, miss := range misses {
+		p := influxdb2.NewPointWithMeasurement("callbacks").
+			AddTag("callbackSetId", callbackSetId.String()).
+			AddTag("blocklists", miss.parentBlocklist).
+			AddField("objectName", miss.Name).
+			AddField("world", world.FriendlyName).
+			SetTime(now)
+		if miss.Position != nil {
+			p.AddField("position", miss.Position)
+		}
+		if miss.Parent != nil {
+			p.AddField("parentName", miss.Parent.Name)
+			if miss.Parent.Position != nil {
+				p.AddField("parentPosition", miss.Parent.Position)
+			}
+		}
+
+		err := influxdb.WritePoint(context.Background(), p)
+		if err != nil {
+			log.Error(err)
+		}
 	}
 }
 
@@ -101,22 +123,19 @@ func generateObjectIndex(blocklistsLocations []string) (mapping map[string]World
 
 			ensureMappingInititalization(mapping, widHashEncoded, object)
 
-			mapHashesToRealObjects(object, mapping, widHashEncoded)
+			for _, gameObject := range object.GameObjects {
+				marshal, err := json.Marshal(gameObject)
+				if err != nil {
+					panic(err)
+				}
+
+				b64 := base64.StdEncoding.EncodeToString(stringToHash(marshal))
+				gameObject.parentBlocklist = blocklistObject.Title
+				mapping[widHashEncoded].GameObjectMapping[b64] = gameObject
+			}
 		}
 	}
 	return mapping
-}
-
-func mapHashesToRealObjects(object Block, mapping map[string]WorldObject, widHashEncoded string) {
-	for _, gameObject := range object.GameObjects {
-		marshal, err := json.Marshal(gameObject)
-		if err != nil {
-			panic(err)
-		}
-
-		b64 := base64.StdEncoding.EncodeToString(stringToHash(marshal))
-		mapping[widHashEncoded].GameObjectMapping[b64] = gameObject
-	}
 }
 
 func ensureMappingInititalization(mapping map[string]WorldObject, widhashEncoded string, block Block) {
