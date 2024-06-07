@@ -6,6 +6,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/log"
 	"os"
 	"strings"
 	"time"
@@ -15,7 +16,8 @@ var HMACKey = []byte(os.Getenv("GITHUB_WEBHOOK_SECRET"))
 
 func init() {
 	if len(HMACKey) == 0 {
-		panic("GITHUB_WEBHOOK_SECRET not set, need webhook secret")
+		log.Warn("GITHUB_WEBHOOK_SECRET is unset, this bypasses the signature check for webhooks!\n" +
+			"You most definitely don't want this in production, this enables anybody to send arbitrary webhook data.")
 	}
 }
 
@@ -86,14 +88,16 @@ func verifyGithubSignature(c *fiber.Ctx) error {
 func handleWebhookRequest(c *fiber.Ctx) error {
 	c.Accepts("application/json")
 	var Callback GithubPushWebhookObj
-	err := verifyGithubSignature(c)
-	if err != nil {
-		return err
+	if len(HMACKey) > 0 {
+		err := verifyGithubSignature(c)
+		if err != nil {
+			return err
+		}
 	}
 
 	switch c.GetReqHeaders()["X-Github-Event"][0] {
 	case "push":
-		if err = c.BodyParser(&Callback); err != nil {
+		if err := c.BodyParser(&Callback); err != nil {
 			panic(err)
 		}
 		go processPushRequest(Callback)
