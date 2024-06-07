@@ -55,14 +55,6 @@ type GameobjectPosition struct {
 	Z float64 `toml:"z" json:"Z"`
 }
 
-func (index WorldObjectIndex) ExistsInIndex(HashedWorldId string) bool {
-	for MapHashedWorldId := range index.Index {
-		if MapHashedWorldId == HashedWorldId {
-			return true
-		}
-	}
-	return false
-}
 func (index WorldObjectIndex) GetWorldById(HashedWorldId string) *WorldObject {
 	if val, exists := index.Index[HashedWorldId]; exists {
 		return &val
