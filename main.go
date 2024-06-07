@@ -25,7 +25,9 @@ func main() {
 	v1Group := app.Group("/v1")
 	v1Group.Post("/BlocklistCallback", submitBlocklistHit)
 
-	app.Post("webhook", handleWebhookRequest)
+	if grafanaReady {
+		app.Post("webhook", handleWebhookRequest)
+	}
 
 	err := app.Listen(":80")
 	if err != nil {

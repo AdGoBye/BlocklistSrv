@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-openapi/strfmt"
+	"github.com/gofiber/fiber/v2/log"
 	goapi "github.com/grafana/grafana-openapi-client-go/client"
 	"github.com/grafana/grafana-openapi-client-go/client/service_accounts"
 	"github.com/grafana/grafana-openapi-client-go/models"
@@ -29,6 +30,7 @@ var (
 	}
 	client              goapi.GrafanaHTTPAPI
 	grafanaDashboardUID = os.Getenv("GRAFANA_DASHBOARD_UID")
+	grafanaReady        = false
 )
 
 func init() {
@@ -50,7 +52,8 @@ func tryGetToken() {
 	if err != nil || token == "" {
 		token, err = issueServiceToken()
 		if err != nil {
-			panic(err)
+			log.Debugf("tryGetToken: Failed to issue service token ('%s'), refusing to enable webhook endpoint", err.Error())
+			return
 		}
 	}
 
@@ -59,14 +62,19 @@ func tryGetToken() {
 	client = *goapi.NewHTTPClientWithConfig(strfmt.Default, clientCfg)
 	err = GrafanaDoesRelevantDashboardExist()
 	if err != nil {
-
-		token, err = issueServiceToken()
+		token, err = issueServiceToken() // The token we read is probably stale, get another one
 		if err != nil {
 			panic(err)
 		}
 		clientCfg.APIKey = token
 		client = *goapi.NewHTTPClientWithConfig(strfmt.Default, clientCfg)
+		err = GrafanaDoesRelevantDashboardExist()
+		if err != nil {
+			log.Errorf("tryGetToken: We issued a token but it doesn't work?! ('%s'), refusing to enable webhook endpoint", err.Error())
+			return
+		}
 	}
+	grafanaReady = true
 }
 
 func issueServiceToken() (string, error) {
