@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"github.com/gofiber/fiber/v2/log"
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 	"github.com/influxdata/influxdb-client-go/v2/api"
@@ -44,13 +45,14 @@ type CallbackContainer struct {
 }
 
 type Gameobject struct {
-	Name     string `toml:"name" json:"Name"`
-	Position *struct {
-		X float64 `toml:"x" json:"X"`
-		Y float64 `toml:"y" json:"Y"`
-		Z float64 `toml:"z" json:"Z"`
-	} `toml:"position" json:"Position"`
-	Parent *Gameobject `toml:"parent" json:"Parent"`
+	Name     string              `toml:"name" json:"Name"`
+	Position *GameobjectPosition `toml:"position" json:"Position"`
+	Parent   *Gameobject         `toml:"parent" json:"Parent"`
+}
+type GameobjectPosition struct {
+	X float64 `toml:"x" json:"X"`
+	Y float64 `toml:"y" json:"Y"`
+	Z float64 `toml:"z" json:"Z"`
 }
 
 func (index WorldObjectIndex) ExistsInIndex(HashedWorldId string) bool {
@@ -156,6 +158,8 @@ func fetchBlocklist(location string) (Blocklist, error) {
 		if err != nil {
 			return Blocklist{}, err
 		}
+	default:
+		return Blocklist{}, errors.New("unsupported scheme: " + uri.Scheme)
 	}
 
 	var blocklistObject Blocklist
