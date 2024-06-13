@@ -1,5 +1,5 @@
-// grafana: because playing ball with the rest of the ecosystem is for dweebs
-package main
+// Package Pushers.grafana: because playing ball with the rest of the ecosystem is for dweebs
+package Pushers
 
 import (
 	"errors"
@@ -16,11 +16,6 @@ import (
 	"time"
 )
 
-// Pointer - Thanks to https://stackoverflow.com/a/77494966
-func Pointer[T any](d T) *T {
-	return &d
-}
-
 var (
 	clientCfg = &goapi.TransportConfig{
 		Host:     os.Getenv("GRAFANA_LOCATION"),
@@ -28,12 +23,16 @@ var (
 		BasePath: "/api",
 		OrgID:    1,
 	}
-	client       goapi.GrafanaHTTPAPI
-	grafanaReady = false
+	client goapi.GrafanaHTTPAPI
 )
 
-func init() {
-	tryGetToken()
+// pointer - Thanks to https://stackoverflow.com/a/77494966
+func pointer[T any](d T) *T {
+	return &d
+}
+
+func EnsureGrafanaUp() bool {
+	return tryGetToken()
 }
 
 // There are multiple problems with config for Docker and Grafana:
@@ -46,20 +45,20 @@ func init() {
 //
 // This exists as crowbar approach, tryGetToken first tries to check if we have a service credential and prefer that.
 // If it doesn't exist or is faulty, tryGetToken will issue itself a token with admin credentials and save it for reruns.
-func tryGetToken() {
+func tryGetToken() bool {
 	token, err := readServiceCred()
 	if err != nil || token == "" {
 		token, err = issueServiceToken()
 		if err != nil {
 			log.Debugf("tryGetToken: Failed to issue service token ('%s'), refusing to enable webhook endpoint", err.Error())
-			return
+			return false
 		}
 	}
 
 	clientCfg.BasicAuth = nil
 	clientCfg.APIKey = token
 	client = *goapi.NewHTTPClientWithConfig(strfmt.Default, clientCfg)
-	_, err = GrafanaGetSelf()
+	_, err = grafanaGetSelf()
 	if err != nil {
 		token, err = issueServiceToken() // The token we read is probably stale, get another one
 		if err != nil {
@@ -67,15 +66,15 @@ func tryGetToken() {
 		}
 		clientCfg.APIKey = token
 		client = *goapi.NewHTTPClientWithConfig(strfmt.Default, clientCfg)
-		_, err = GrafanaGetSelf()
+		_, err = grafanaGetSelf()
 		if err != nil {
 			log.Errorf("tryGetToken: We issued a token but it doesn't work?! ('%s'), refusing to enable webhook endpoint", err.Error())
-			return
+			return false
 		}
 	}
-	grafanaReady = true
+	return true
 }
-func GrafanaGetSelf() (*models.UserProfileDTO, error) {
+func grafanaGetSelf() (*models.UserProfileDTO, error) {
 	user, err := client.SignedInUser.GetSignedInUser()
 	if err != nil {
 		return nil, nil
@@ -96,7 +95,7 @@ func issueServiceToken() (string, error) {
 	// Like really, this is barely better than just writing by hand. I shouldn't need to scrounge a utility function
 	// for an API wrapper. You're supposed to abstract this for me as API consumer.
 	params := service_accounts.NewSearchOrgServiceAccountsWithPagingParams()
-	params.Disabled = Pointer(false)
+	params.Disabled = pointer(false)
 
 	paging, err := client.ServiceAccounts.SearchOrgServiceAccountsWithPaging(params)
 	if err != nil {
@@ -120,7 +119,7 @@ func issueServiceToken() (string, error) {
 
 	paramsServiceToken := service_accounts.NewCreateTokenParams()
 	paramsServiceToken.ServiceAccountID = serviceAccountId
-	paramsServiceToken.Body = Pointer(models.AddServiceAccountTokenCommand{Name: "blocklistsrvannotations"})
+	paramsServiceToken.Body = pointer(models.AddServiceAccountTokenCommand{Name: "blocklistsrvannotations"})
 	tokenContainer, err := client.ServiceAccounts.CreateToken(paramsServiceToken)
 	if err != nil {
 		return "", err
@@ -134,7 +133,7 @@ func issueServiceToken() (string, error) {
 
 func createServiceAccount(client *goapi.GrafanaHTTPAPI) (int64, error) {
 	paramsServiceAccount := service_accounts.NewCreateServiceAccountParams()
-	paramsServiceAccount.Body = Pointer(models.CreateServiceAccountForm{
+	paramsServiceAccount.Body = pointer(models.CreateServiceAccountForm{
 		Name: "blocklistsrv",
 		Role: "Editor",
 	})
@@ -149,7 +148,7 @@ func createServiceAccount(client *goapi.GrafanaHTTPAPI) (int64, error) {
 func readFileFromEnvVarLocation(envvar string) (string, error) {
 	passwordFileLocation, ok := os.LookupEnv(envvar)
 	if passwordFileLocation == "" || ok == false {
-		return "", errors.New(envvar + "unset or default")
+		return "", errors.New(envvar + " unset or default")
 	}
 
 	if _, err := os.Stat(passwordFileLocation); err != nil {
@@ -168,7 +167,7 @@ func readFileFromEnvVarLocation(envvar string) (string, error) {
 }
 
 func constructAnnotationGrafana(WebhookObj GithubPushWebhookObj) {
-	_, err := client.Annotations.PostAnnotation(Pointer(models.PostAnnotationsCmd{
+	_, err := client.Annotations.PostAnnotation(pointer(models.PostAnnotationsCmd{
 		Time:    time.Now().UnixMilli(),
 		TimeEnd: time.Now().UnixMilli(),
 		Tags:    []string{"gitpush"},
@@ -201,7 +200,7 @@ func generateGrafanaAnnotationText(webhookObj GithubPushWebhookObj) *string {
 		builder.WriteString(strings.Split(commit.Message, "\n")[0])
 		builder.WriteString("\n")
 	}
-	return Pointer(builder.String())
+	return pointer(builder.String())
 }
 func readServiceCred() (string, error) {
 	file, err := os.ReadFile("/.grafanaServiceCredential")

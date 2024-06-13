@@ -1,4 +1,4 @@
-package main
+package Pushers
 
 import (
 	"crypto/hmac"
@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 )
+
+type GrafanaGithubWebhookAnnotation struct{}
 
 var HMACKey = []byte(os.Getenv("GITHUB_WEBHOOK_SECRET"))
 
@@ -85,7 +87,7 @@ func verifyGithubSignature(c *fiber.Ctx) error {
 	}
 	return nil
 }
-func handleWebhookRequest(c *fiber.Ctx) error {
+func (grafghanno GrafanaGithubWebhookAnnotation) HandlePushRequest(c *fiber.Ctx) error {
 	c.Accepts("application/json")
 	var Callback GithubPushWebhookObj
 	if len(HMACKey) > 0 {
@@ -100,7 +102,7 @@ func handleWebhookRequest(c *fiber.Ctx) error {
 		if err := c.BodyParser(&Callback); err != nil {
 			panic(err)
 		}
-		go processPushRequest(Callback)
+		go constructAnnotationGrafana(Callback)
 	case "ping": // Needs no processing
 	default:
 		return c.SendStatus(fiber.StatusNotImplemented)
@@ -109,6 +111,7 @@ func handleWebhookRequest(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
-func processPushRequest(WebhookObj GithubPushWebhookObj) {
-	constructAnnotationGrafana(WebhookObj)
+func (grafghanno GrafanaGithubWebhookAnnotation) CanPusherOperate() bool {
+	// ? Is there some way we can check that GitHub is good?
+	return EnsureGrafanaUp()
 }
