@@ -22,9 +22,10 @@ func Pointer[T any](d T) *T {
 }
 
 var (
-	clientCfg = &goapi.TransportConfig{
-		Host:     os.Getenv("GRAFANA_LOCATION"),
-		Schemes:  []string{"http"},
+	grafanaUrl, _ = url.Parse(os.Getenv("GRAFANA_LOCATION"))
+	clientCfg     = &goapi.TransportConfig{
+		Host:     grafanaUrl.Host,
+		Schemes:  []string{grafanaUrl.Scheme},
 		BasePath: "/api",
 		OrgID:    1,
 	}
