@@ -1,21 +1,15 @@
-package main
+package Processing
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"github.com/gofiber/fiber/v2/log"
-	"github.com/google/uuid"
-	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
-	"github.com/influxdata/influxdb-client-go/v2/api"
 	"github.com/pelletier/go-toml/v2"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
-	"time"
 )
 
 type WorldObject struct {
@@ -49,7 +43,7 @@ type Gameobject struct {
 	Name            string              `toml:"name" json:"Name"`
 	Position        *GameobjectPosition `toml:"position" json:"Position"`
 	Parent          *Gameobject         `toml:"parent" json:"Parent"`
-	parentBlocklist string
+	ParentBlocklist *string             `json:"-,omitempty"`
 }
 type GameobjectPosition struct {
 	X float64 `toml:"x" json:"X"`
@@ -80,37 +74,11 @@ func (index WorldObjectIndex) HandleBlocklistCallback(object CallbackContainer) 
 	if len(misses) == 0 { // None of the objects reported back are relevant to us
 		return
 	}
-	now := time.Now()
-	callbackSetId, err := uuid.NewUUID()
-	if err != nil {
-		panic(err)
-	}
 
-	for _, miss := range misses {
-		p := influxdb2.NewPointWithMeasurement("callbacks").
-			AddTag("callbackSetId", callbackSetId.String()).
-			AddTag("blocklists", miss.parentBlocklist).
-			AddField("objectName", miss.Name).
-			AddField("world", world.FriendlyName).
-			SetTime(now)
-		if miss.Position != nil {
-			p.AddField("position", miss.Position)
-		}
-		if miss.Parent != nil {
-			p.AddField("parentName", miss.Parent.Name)
-			if miss.Parent.Position != nil {
-				p.AddField("parentPosition", miss.Parent.Position)
-			}
-		}
-
-		err := influxdb.WritePoint(context.Background(), p)
-		if err != nil {
-			log.Error(err)
-		}
-	}
+	ChosenReceiver.SendToRemote(misses, world)
 }
 
-func generateObjectIndex(blocklistsLocations []string) (mapping map[string]WorldObject) {
+func GenerateObjectIndex(blocklistsLocations []string) (mapping map[string]WorldObject) {
 	mapping = make(map[string]WorldObject)
 	for _, blocklistUrl := range blocklistsLocations {
 		blocklistObject, err := fetchBlocklist(blocklistUrl)
@@ -130,7 +98,7 @@ func generateObjectIndex(blocklistsLocations []string) (mapping map[string]World
 				}
 
 				b64 := base64.StdEncoding.EncodeToString(stringToHash(marshal))
-				gameObject.parentBlocklist = blocklistObject.Title
+				gameObject.ParentBlocklist = &blocklistObject.Title
 				mapping[widHashEncoded].GameObjectMapping[b64] = gameObject
 			}
 		}
@@ -199,10 +167,4 @@ func stringToHash[inputs string | []byte](input inputs) (output []byte) {
 	hash.Write([]byte(input)) // []byte as []byte stays []byte, so we don't have to explicitly check
 	output = hash.Sum(nil)
 	return output
-}
-
-func getInfluxDBClient() api.WriteAPIBlocking {
-	influxClient := influxdb2.NewClient(os.Getenv("INFLUXDB_LOCATION"), os.Getenv("DOCKER_INFLUXDB_INIT_ADMIN_TOKEN"))
-	defer influxClient.Close()
-	return influxClient.WriteAPIBlocking(os.Getenv("DOCKER_INFLUXDB_INIT_ORG"), os.Getenv("DOCKER_INFLUXDB_INIT_BUCKET"))
 }
