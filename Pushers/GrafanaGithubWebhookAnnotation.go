@@ -1,6 +1,8 @@
 package Pushers
 
 import (
+	"AGB-BlocklistSrv/Processing"
+	"AGB-BlocklistSrv/config"
 	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -103,6 +105,7 @@ func (grafghanno GrafanaGithubWebhookAnnotation) HandlePushRequest(c *fiber.Ctx)
 			panic(err)
 		}
 		go constructAnnotationGrafana(Callback)
+		Processing.Index.Index = Processing.GenerateObjectIndex(config.Configuration.Blocklists)
 	case "ping": // Needs no processing
 	default:
 		return c.SendStatus(fiber.StatusNotImplemented)

@@ -8,10 +8,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
 	"github.com/gofiber/fiber/v2/middleware/recover"
-)
-
-var (
-	index = Processing.WorldObjectIndex{Index: Processing.GenerateObjectIndex(config.Configuration.Blocklists)}
+	"time"
 )
 
 func main() {
@@ -19,8 +16,10 @@ func main() {
 		Network: fiber.NetworkTCP,
 	})
 
+	Processing.Index.Index = Processing.GenerateObjectIndex(config.Configuration.Blocklists)
+
 	app.Use(recover.New())
-	log.Infof("Loaded %d blocks, passing to Fiber", len(index.Index))
+	log.Infof("Loaded %d blocks, passing to Fiber", len(Processing.Index.Index))
 
 	v1Group := app.Group("/v1")
 	v1Group.Post("/BlocklistCallback", submitBlocklistHit)
@@ -30,6 +29,12 @@ func main() {
 
 	if Processing.ChosenPusher.CanPusherOperate() {
 		v1Group.Post("pusher", Processing.ChosenPusher.HandlePushRequest)
+	} else {
+		go func() {
+			for range time.Tick(time.Hour * 1) { // TODO: Make this configurable
+				Processing.Index.Index = Processing.GenerateObjectIndex(config.Configuration.Blocklists)
+			}
+		}()
 	}
 
 	err := app.Listen(":80")
@@ -44,7 +49,7 @@ func submitBlocklistHit(c *fiber.Ctx) error {
 	if err := c.BodyParser(&Callback); err != nil {
 		panic(err)
 	}
-	index.HandleBlocklistCallback(Callback)
+	Processing.Index.HandleBlocklistCallback(Callback)
 
 	return c.SendStatus(fiber.StatusNoContent)
 }
