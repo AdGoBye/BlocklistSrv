@@ -112,7 +112,7 @@
             "type": "influxdb",
             "uid": "P6D64DDB364ABABC6"
           },
-          "query": "from(bucket: \"blcb\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r.blocklists =~ /${Blocklist:regex}/ and r._value =~ /${Name:regex}/)\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> drop(columns: [\"_start\", \"_stop\"])\n\n\n\n",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r.blocklists =~ /${Blocklist:regex}/ and r._value =~ /${Name:regex}/)\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> drop(columns: [\"_start\", \"_stop\"])\n\n\n\n",
           "refId": "A"
         }
       ],
@@ -338,14 +338,14 @@
           "type": "influxdb",
           "uid": "P6D64DDB364ABABC6"
         },
-        "definition": "from(bucket: \"blcb\")\n  |> range(start: v.timeRangeStart, stop:v.timeRangeStop)\n  |> filter(fn: (r) => r._field == \"world\")\n  |> drop(columns: [\"_time\"])",
+        "definition": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop:v.timeRangeStop)\n  |> filter(fn: (r) => r._field == \"world\")\n  |> drop(columns: [\"_time\"])",
         "hide": 0,
         "includeAll": true,
         "label": "",
         "multi": true,
         "name": "Name",
         "options": [],
-        "query": "from(bucket: \"blcb\")\n  |> range(start: v.timeRangeStart, stop:v.timeRangeStop)\n  |> filter(fn: (r) => r._field == \"world\")\n  |> drop(columns: [\"_time\"])",
+        "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop:v.timeRangeStop)\n  |> filter(fn: (r) => r._field == \"world\")\n  |> drop(columns: [\"_time\"])",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
@@ -467,6 +467,6 @@
   "timezone": "browser",
   "title": "AdGoBye Blocklist Callback",
   "uid": "edo2z0gzn4740f",
-  "version": 6,
+  "version": 7,
   "weekStart": ""
 }
