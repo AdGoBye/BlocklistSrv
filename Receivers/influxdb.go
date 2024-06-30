@@ -8,6 +8,7 @@ import (
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 	"github.com/influxdata/influxdb-client-go/v2/api"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -24,10 +25,11 @@ func (influx Influxdb) SendToRemote(misses []Processing.Gameobject, world *Proce
 		panic(err)
 	}
 
-	for _, miss := range misses {
+	for i, miss := range misses {
 		p := influxdb2.NewPointWithMeasurement("callbacks").
 			AddTag("callbackSetId", callbackSetId.String()).
 			AddTag("blocklists", *miss.ParentBlocklist).
+			AddTag("uniq", strconv.Itoa(i)).
 			AddField("objectName", miss.Name).
 			AddField("world", world.FriendlyName).
 			SetTime(now)
