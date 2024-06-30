@@ -310,7 +310,7 @@
             "type": "influxdb",
             "uid": "P6D64DDB364ABABC6"
           },
-          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r.blocklists =~ /${Blocklist:regex}/ and r._value =~ /${Name:regex}/)\n  |> duplicate(column: \"blocklists\", as: \"blocklist\")\n  |> group(columns: [\"blocklist\"])\n  |> aggregateWindow(every: ${window}, fn: count)",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r.blocklists =~ /${Blocklist:regex}/ and r._value =~ /${Name:regex}/ and r._field == \"objectName\")\n  |> duplicate(column: \"blocklists\", as: \"blocklist\")\n  |> group(columns: [\"blocklist\"])\n  |> aggregateWindow(every: ${window}, fn: count)",
           "refId": "A"
         }
       ],
@@ -467,6 +467,6 @@
   "timezone": "browser",
   "title": "AdGoBye Blocklist Callback",
   "uid": "edo2z0gzn4740f",
-  "version": 7,
+  "version": 8,
   "weekStart": ""
 }
